@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>帝王之路成語闖關遊戲</title>
+    <style>
+        :root {
+            --ancient-red: #8b0000;
+            --ancient-gold: #d4af37;
+            --paper: #f4e4bc;
+            --ink: #1a1a1a;
+        }
+
+        body {
+            background-color: #2c2c2c;
+            font-family: "Noto Serif TC", "Microsoft JhengHei", serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            color: var(--ink);
+        }
+
+        #game-container {
+            background-color: var(--paper);
+            width: 90%;
+            max-width: 600px;
+            padding: 30px;
+            border: 12px double var(--ancient-red);
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+            text-align: center;
+            position: relative;
+        }
+
+        .header-info {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 2px solid var(--ancient-red);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .rank-title {
+            font-size: 2.2rem;
+            color: var(--ancient-red);
+            margin: 10px 0;
+            letter-spacing: 5px;
+        }
+
+        .image-frame {
+            width: 280px;
+            height: 280px;
+            margin: 0 auto 20px;
+            border: 5px solid var(--ancient-gold);
+            background-color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .image-frame img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .quiz-area {
+            background: rgba(255, 255, 255, 0.4);
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .idiom-text {
+            font-size: 2.5rem;
+            font-weight: 900;
+            letter-spacing: 12px;
+            margin: 20px 0;
+        }
+
+        .blank {
+            color: var(--ancient-red);
+            border-bottom: 4px solid var(--ancient-red);
+            display: inline-block;
+            width: 50px;
+            text-align: center;
+        }
+
+        input[type="text"] {
+            font-size: 1.8rem;
+            width: 70px;
+            padding: 8px;
+            text-align: center;
+            border: 2px solid var(--ink);
+            outline: none;
+            background: transparent;
+        }
+
+        button {
+            font-size: 1.2rem;
+            padding: 10px 25px;
+            background-color: var(--ancient-red);
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-left: 10px;
+            transition: 0.2s;
+        }
+
+        button:hover { background-color: #5a0000; }
+        button:disabled { background-color: #777; cursor: not-allowed; }
+
+        #msg {
+            margin-top: 20px;
+            font-weight: bold;
+            min-height: 1.5rem;
+        }
+
+        .fail-text { color: #d63031; }
+        .success-text { color: #27ae60; }
+
+        /* 遮罩畫面 */
+        #overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            text-align: center;
+            padding: 20px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="overlay">
+        <h1 id="ov-title">皇途：成語晉升之路</h1>
+        <p id="ov-desc">從普通人到帝王，你需要證明你的學識。<br>(請開啟聲音體驗背景音樂)</p>
+        <button onclick="startGame()" id="ov-btn">進入考場</button>
+    </div>
+
+    <div id="main-game">
+        <div class="header-info">
+            <div>身份：<span id="rank-display">童生</span></div>
+            <div>修改機會：<span id="life-display">3</span></div>
+        </div>
+
+        <div class="rank-title" id="rank-header">初探試場</div>
+
+        <div class="image-frame">
+            <img id="rank-image" src="童生.png" alt="身份圖片">
+        </div>
+
+        <div class="quiz-area">
+            <div id="idiom-display" class="idiom-text">一 心 一 <span class="blank">?</span></div>
+            <div id="hint-text" style="color:#666; font-size: 0.9rem; margin-bottom: 15px;"></div>
+            <div id="input-container">
+                <input type="text" id="answer-input" maxlength="1" placeholder="填">
+                <button onclick="submitAnswer()">提交</button>
+            </div>
+            <div id="msg"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 背景音樂設定
+    const bgmNormal = new Audio('AnyConv.com__新錄音 6.mp3');
+    bgmNormal.loop = true;
+    const bgmEnd = new Audio('AnyConv.com__新錄音 9.mp3');
+
+    // 關卡數據 (難度隨官階提升)
+    const levels = [
+        { rank: "童生", img: "童生.png", q: "一 心 一 (?)", a: "意", hint: "形容心志專一。" },
+        { rank: "秀才", img: "秀才.png", q: "才 高 八 (?)", a: "斗", hint: "形容人才華極高。" },
+        { rank: "舉人", img: "舉人.png", q: "金 榜 (?) 名", a: "題", hint: "科舉應試中選。" },
+        { rank: "進士", img: "進士.png", q: "獨 占 (?) 頭", a: "鰲", hint: "科舉考試考取狀元。" },
+        { rank: "翰林", img: "翰林.png", q: "韋 編 (?) 絕", a: "三", hint: "修正題：形容讀書勤奮，編連竹簡的皮繩斷裂多次。" },
+        { rank: "捕快", img: "捕快.png", q: "繩 之 (?) 法", a: "以", hint: "依法處置罪犯。" },
+        { rank: "縣令", img: "縣令.png", q: "兩 袖 清 (?)", a: "風", hint: "形容官吏廉潔。" },
+        { rank: "侍郎", img: "侍郎.png", q: "殫 精 (?) 慮", a: "竭", hint: "竭盡心力，思慮謀劃。" },
+        { rank: "將軍", img: "將軍.png", q: "折 衝 (?) 俎", a: "樽", hint: "在酒席間制敵取勝，展現外交軍事謀略。" },
+        { rank: "宰相", img: "宰相.png", q: "燮 理 (?) 陽", a: "陰", hint: "比喻宰相調和國政。" },
+        { rank: "帝王", img: "帝王.png", q: "乾 坤 (?) 斷", a: "獨", hint: "指君主獨攬政權，親自裁斷天下大事。" }
+    ];
+
+    let currentLvl = 0;
+    let attempts = 3;
+    let isFinished = false;
+
+    function startGame() {
+        document.getElementById('overlay').style.display = 'none';
+        bgmNormal.play().catch(e => console.log("音訊受限：需與頁面互動"));
+        loadLevel();
+    }
+
+    function loadLevel() {
+        const data = levels[currentLvl];
+        document.getElementById('rank-display').innerText = data.rank;
+        document.getElementById('rank-image').src = data.img;
+        document.getElementById('rank-header').innerText = `${data.rank}考驗`;
+        document.getElementById('hint-text').innerText = `提示：${data.hint}`;
+        document.getElementById('idiom-display').innerHTML = data.q.replace("(?)", '<span class="blank">?</span>');
+        document.getElementById('life-display').innerText = attempts;
+        document.getElementById('answer-input').value = "";
+        document.getElementById('msg').innerText = "";
+        document.getElementById('answer-input').focus();
+    }
+
+    function submitAnswer() {
+        if (isFinished) return;
+
+        const val = document.getElementById('answer-input').value.trim();
+        const data = levels[currentLvl];
+        const msg = document.getElementById('msg');
+
+        if (val === data.a) {
+            msg.innerHTML = '<span class="success-text">正確！晉升中...</span>';
+            setTimeout(() => {
+                if (currentLvl < levels.length - 1) {
+                    currentLvl++;
+                    attempts = 3; // 晉升後重置生命
+                    loadLevel();
+                } else {
+                    handleVictory();
+                }
+            }, 1200);
+        } else {
+            attempts--;
+            document.getElementById('life-display').innerText = attempts;
+            if (attempts <= 0) {
+                msg.innerHTML = `<span class="fail-text">三試不中！正確答案為「${data.a}」。</span>`;
+                setTimeout(() => handleFailure(), 2500);
+            } else {
+                msg.innerHTML = `<span class="fail-text">答錯了，請再思量（剩 ${attempts} 次）</span>`;
+            }
+        }
+    }
+
+    function handleFailure() {
+        const overlay = document.getElementById('overlay');
+        document.getElementById('ov-title').innerText = "仕途告終";
+        document.getElementById('ov-desc').innerText = `很遺憾，你在${levels[currentLvl].rank}階段才學不足。`;
+        const btn = document.getElementById('ov-btn');
+        btn.innerText = "從童生再開始";
+        btn.onclick = () => {
+            currentLvl = 0;
+            attempts = 3;
+            overlay.style.display = 'none';
+            loadLevel();
+        };
+        overlay.style.display = 'flex';
+    }
+
+    function handleVictory() {
+        bgmNormal.pause();
+        bgmEnd.play();
+        isFinished = true;
+        
+        // 鎖定 UI
+        document.getElementById('answer-input').disabled = true;
+        document.querySelector('button[onclick="submitAnswer()"]').disabled = true;
+
+        const overlay = document.getElementById('overlay');
+        document.getElementById('ov-title').innerText = "登基大典";
+        document.getElementById('ov-title').style.color = "var(--ancient-gold)";
+        document.getElementById('ov-desc').innerText = "萬歲萬歲萬萬歲！您已成功登基稱帝！";
+        document.getElementById('ov-btn').style.display = 'none'; // 隱藏按鈕，不可再考
+
+        overlay.style.display = 'flex';
+
+        // 監聽音檔結束
+        bgmEnd.onended = function() {
+            document.getElementById('ov-desc').innerHTML = "生命歷程圓滿結束。<br>一朝天子一朝臣，您的傳奇已然寫就。";
+        };
+    }
+
+    // Enter 鍵支援
+    document.getElementById('answer-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') submitAnswer();
+    });
+</script>
+
+</body>
+</html>
